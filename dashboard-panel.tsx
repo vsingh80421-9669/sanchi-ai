@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Card } from "@/components/ui/card"
+// import { Card } from "@/components/ui/card"
 import { Activity, MessageSquare, Mic, Clock } from "lucide-react"
 import { storageService } from "@/lib/storage"
 
@@ -21,7 +21,7 @@ export function DashboardPanel() {
   }, [])
 
   return (
-    <Card className="bg-card/50 backdrop-blur-lg border-border/50 p-6">
+    <div className="bg-card/50 backdrop-blur-lg border border-border/50 p-6">
       <div className="flex items-center gap-2 mb-6">
         <Activity className="w-5 h-5 text-primary" />
         <h2 className="text-xl font-semibold">Activity Dashboard</h2>
@@ -49,9 +49,9 @@ export function DashboardPanel() {
             <Clock className="w-5 h-5 text-secondary" />
             <span className="text-sm text-muted-foreground">Last Active</span>
           </div>
-          <p className="text-sm font-medium text-foreground">{stats.lastSeen || "—"}</p>
+          <p className="text-sm font-medium text-foreground">{stats.lastSeen || "--"}</p>
         </div>
       </div>
-    </Card>
+    </div>
   )
 }
