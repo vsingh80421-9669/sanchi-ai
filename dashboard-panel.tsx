@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 // import { Card } from "@/components/ui/card"
 import { Activity, MessageSquare, Mic, Clock } from "lucide-react"
-import { storageService } from "../lib/storage"
+import { storageService } from "./storage"
 
 export function DashboardPanel() {
   const [stats, setStats] = useState({ wakeups: 0, commands: 0, lastSeen: "" })
