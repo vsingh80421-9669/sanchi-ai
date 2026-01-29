@@ -15,7 +15,8 @@ import { useVoiceSynthesis } from "@/hooks/use-voice-synthesis"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
 import { DashboardPanel } from "@/components/dashboard-panel"
-import { storageService } from "@/lib/storage"
+import { storageService } from "@/lib/storege"
+
 
 export default function Home() {
   const [isListening, setIsListening] = useState(false)
@@ -47,52 +48,48 @@ export default function Home() {
     }
   }, [recognitionService, setSpeakingChangeCallback])
 
-  useEffect(() => {
-    const checkRoutines = () => {
-      const now = new Date()
-      const hour = now.getHours()
+  /*
+useEffect(() => {
+  const checkRoutines = () => {
+    const now = new Date()
+    const hour = now.getHours()
 
-      // Morning greeting at 7 AM
-      if (hour === 7 && storageService.shouldSendMorningGreeting()) {
-        storageService.markMorningGreetingSent()
-        speak("Good morning Boss, aaj ka din productive banate hain.")
-      }
-
-      // Check for time-based reminders
-      const reminders = storageService.getReminders()
-      reminders.forEach((reminder) => {
-        if (reminder.time && !reminder.completed && hour === reminder.time) {
-          speak(`Boss reminder: ${reminder.message}`)
-          storageService.toggleReminder(reminder.id)
-        }
-      })
-
-      // Check for scheduled tasks
-      const tasks = storageService.getTasks()
-      const today = new Date().toDateString()
-      tasks.forEach((task) => {
-        if (!task.done && task.time === hour && task.date === today) {
-          speak(`Boss, aapka task: ${task.text}`)
-          storageService.markTaskDone(task.id)
-        }
-      })
+    if (hour === 7 && storageService.shouldSendMorningGreeting()) {
+      storageService.markMorningGreetingSent()
+      speak("Good morning Boss, aaj ka din productive banate hain.")
     }
 
-    // Run immediately
-    checkRoutines()
+    const reminders = storageService.getReminders()
+    reminders.forEach((reminder) => {
+      if (reminder.time && !reminder.completed && hour === reminder.time) {
+        speak(`Boss reminder: ${reminder.message}`)
+        storageService.toggleReminder(reminder.id)
+      }
+    })
 
-    // Check every minute
-    const interval = setInterval(checkRoutines, 60000)
+    const tasks = storageService.getTasks()
+    const today = new Date().toDateString()
+    tasks.forEach((task) => {
+      if (!task.done && task.time === hour && task.date === today) {
+        speak(`Boss, aapka task: ${task.text}`)
+        storageService.markTaskDone(task.id)
+      }
+    })
+  }
 
-    return () => clearInterval(interval)
-  }, [speak])
+  checkRoutines()
+  const interval = setInterval(checkRoutines, 60000)
+  return () => clearInterval(interval)
+}, [speak])
+*/
+
 
   const handleSendMessage = async (message: string): Promise<{ response: string; searchPerformed?: boolean }> => {
     try {
       console.log("[v0] Processing message:", message)
       setIsProcessing(true)
 
-      storageService.logActivity("commands")
+     // storageService.logActivity("commands")
 
       const timeMatch = message.match(/(\d{1,2})\s*baje/i)
       if (timeMatch && (message.includes("yaad") || message.includes("reminder") || message.includes("task"))) {
