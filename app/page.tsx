@@ -76,7 +76,7 @@ export default function Home() {
       cleanText.includes("कैसे ho") || 
       cleanText.includes("कैसे हो")
     ) {
-      return "Main thik hoon, shukriya punchne ke liye";
+      return "Main thik hoon, shukriya poochhne ke liye";
     } 
     else if (
       cleanText.includes("hello") || 
