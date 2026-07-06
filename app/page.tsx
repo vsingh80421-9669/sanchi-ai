@@ -23,8 +23,8 @@ export default function Home() {
       const text = event.results[0][0].transcript;
       setHeardText(text);
 
-      const reply = getReply(text); // 🧠 yahin soch rahi hai
-      speak(reply);                // 🗣️ yahin bol rahi hai
+      const reply = getReply(text);
+      speak(reply);
 
       setStatus("Replied");
     };
@@ -40,7 +40,6 @@ export default function Home() {
     recognition.start();
   };
 
-  // 🧠 Sanchi ka decision brain
   const getReply = (text: string) => {
     text = text.toLowerCase();
 
@@ -58,7 +57,6 @@ export default function Home() {
     }
   };
 
-  // 🗣️ Voice output logic
   const speak = (replyText: string) => {
     if ("speechSynthesis" in window) {
       const utterance = new SpeechSynthesisUtterance(replyText);
@@ -80,5 +78,4 @@ export default function Home() {
       {heardText && <p style={{ marginTop: "30px", fontSize: "16px", color: "#aaa" }}>Boss ne bola: "{heardText}"</p>}
     </div>
   );
-}
-
+      }
