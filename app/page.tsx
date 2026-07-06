@@ -88,7 +88,7 @@ export default function Home() {
     else if (
       cleanText.includes("Tum is waqt kahan ho") ||
       cleanText.includes("where are you") ||
-      clearText.includes("तुम इस वक्त कहा हो") ||
+      cleanText.includes("तुम इस वक्त कहा हो") ||
       cleanText.includes("तुम कहा हो")
     ) {
       return "main is waqt, aapke phone mein aapke sath Hain";
