@@ -142,5 +142,4 @@ export const storageService = {
       localStorage.setItem("sanchi_tasks", JSON.stringify(tasks))
     }
   },
-        }
-
+}
