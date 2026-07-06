@@ -91,7 +91,7 @@ export default function Home() {
       cleanText.includes("तुम इस वक्त कहां हो") ||
       cleanText.includes("तुम कहां हो")
     ) {
-      return "main is waqt, aapke phone mein aapke sath Hain";
+      return "main is waqt, aapke phone mein aapke sath Hun";
     }
     else {
       return "Maaf kijiye Boss, mujhe yeh samajh nahi aaya.";
