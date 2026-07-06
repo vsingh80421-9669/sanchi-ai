@@ -1,50 +1,67 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function Home() {
   const [status, setStatus] = useState("Ready");
   const [heardText, setHeardText] = useState("");
+  const [debugError, setDebugError] = useState(""); // 🐛 Error dhoondhne ke liye
 
   const startListening = () => {
-    if (!("webkitSpeechRecognition" in window)) {
-      alert("Speech recognition not supported");
+    if (!("webkitSpeechRecognition" in window) && !("speechRecognition" in window)) {
+      alert("Aapka browser Speech Recognition support nahi karta. Chrome use karein.");
       return;
     }
 
-    const recognition = new (window as any).webkitSpeechRecognition();
+    const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).speechRecognition;
+    const recognition = new SpeechRecognition();
+    
     recognition.lang = "hi-IN";
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
 
     recognition.onstart = () => {
       setStatus("Listening...");
+      setDebugError("");
+      setHeardText("");
     };
 
     recognition.onresult = (event: any) => {
-      const text = event.results[0][0].transcript;
-      setHeardText(text);
+      if (event.results && event.results[0]) {
+        const text = event.results[0][0].transcript;
+        setHeardText(text);
+        setStatus("Processing...");
 
-      const reply = getReply(text);
-      speak(reply);
-
-      setStatus("Replied");
+        const reply = getReply(text);
+        speak(reply);
+        setStatus("Replied");
+      } else {
+        setStatus("No speech detected");
+      }
     };
 
-    recognition.onerror = () => {
+    recognition.onerror = (event: any) => {
+      console.error("Speech Error:", event.error);
+      setDebugError(`Mic Error: ${event.error}`);
       setStatus("Error");
     };
 
     recognition.onend = () => {
-      setStatus("Ready");
+      // Agar status processing ya replied nahi hai, toh wapas ready karo
+      setStatus((prev) => (prev === "Listening..." ? "Stopped" : prev));
     };
 
-    recognition.start();
+    try {
+      recognition.start();
+    } catch (e: any) {
+      setDebugError(`Start Failed: ${e.message}`);
+    }
   };
 
-    const getReply = (text: string) => {
-    // lowercase karna aur aage-piche ke extra spaces hatana
+  const getReply = (text: string) => {
     const cleanText = text.toLowerCase().trim();
 
-    // 1. Naam ke liye check (English aur Hindi dono font)
     if (
       cleanText.includes("naam") || 
       cleanText.includes("name") || 
@@ -53,7 +70,6 @@ export default function Home() {
     ) {
       return "Mera naam Sanchi AI hai";
     } 
-    // 2. Hal-chal ke liye check
     else if (
       cleanText.includes("kaise ho") || 
       cleanText.includes("kaise hain") || 
@@ -62,7 +78,6 @@ export default function Home() {
     ) {
       return "Main thik hoon, shukriya puchhne ke liye";
     } 
-    // 3. Hello/Hi ke liye check
     else if (
       cleanText.includes("hello") || 
       cleanText.includes("hi") || 
@@ -70,15 +85,16 @@ export default function Home() {
     ) {
       return "Hello, main Sanchi hoon";
     } 
-    // 4. Default jab kuch match na ho
     else {
       return "Maaf kijiye Boss, mujhe yeh samajh nahi aaya.";
     }
   };
 
-
   const speak = (replyText: string) => {
     if ("speechSynthesis" in window) {
+      // Pehle se chal rahi aawaaz ko roko
+      window.speechSynthesis.cancel();
+      
       const utterance = new SpeechSynthesisUtterance(replyText);
       utterance.lang = "hi-IN";
       window.speechSynthesis.speak(utterance);
@@ -88,14 +104,26 @@ export default function Home() {
   return (
     <div style={{ padding: "20px", fontFamily: "sans-serif", textAlign: "center", color: "#fff", background: "#111", minHeight: "100vh" }}>
       <h1 style={{ marginTop: "50px" }}>SANCHI AI - Voice Assistant</h1>
-      <p style={{ fontSize: "18px", margin: "20px 0" }}>Status: <strong style={{ color: "#00ffcc" }}>{status}</strong></p>
+      
+      <p style={{ fontSize: "18px", margin: "20px 0" }}>
+        Status: <strong style={{ color: status === "Error" ? "#ff4d4d" : "#00ffcc" }}>{status}</strong>
+      </p>
+
+      {/* 🐛 Debugging text jo dikhayega ki piche kya dikkat hai */}
+      {debugError && <p style={{ color: "#ff4d4d", fontSize: "14px" }}>{debugError}</p>}
+
       <button 
         onClick={startListening} 
-        style={{ padding: "12px 24px", fontSize: "16px", cursor: "pointer", borderRadius: "25px", border: "none", background: "#00ffcc", color: "#000", fontWeight: "bold" }}
+        style={{ padding: "12px 24px", fontSize: "16px", cursor: "pointer", borderRadius: "25px", border: "none", background: "#00ffcc", color: "#000", fontWeight: "bold", marginTop: "10px" }}
       >
         Start Voice
       </button>
-      {heardText && <p style={{ marginTop: "30px", fontSize: "16px", color: "#aaa" }}>Boss ne bola: "{heardText}"</p>}
+
+      {heardText && (
+        <div style={{ marginTop: "30px", background: "#222", padding: "15px", borderRadius: "10px" }}>
+          <p style={{ fontSize: "16px", color: "#aaa", margin: "5px 0" }}>Boss ne bola: "{heardText}"</p>
+        </div>
+      )}
     </div>
   );
-      }
+}
