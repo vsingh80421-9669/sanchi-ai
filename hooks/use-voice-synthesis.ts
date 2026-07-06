@@ -48,6 +48,16 @@ export function useVoiceSynthesis() {
     async (text: string) => {
       try {
         console.log("[v0] Requesting voice synthesis for:", text)
+        
+        // Get recognition service and pause it before speaking
+        if (typeof window !== "undefined") {
+          const { getRecognitionService } = await import("@/lib/speech-recognition")
+          const recognitionService = getRecognitionService()
+          if (recognitionService) {
+            recognitionService.pauseForSpeaking()
+          }
+        }
+        
         setIsSpeaking(true)
         onSpeakingChange?.(true)
 
@@ -66,6 +76,14 @@ export function useVoiceSynthesis() {
           if (data.useFallback) {
             console.log("[v0] Using browser speech synthesis:", data.message)
             await speakWithBrowser(text)
+            // Resume recognition after speaking
+            if (typeof window !== "undefined") {
+              const { getRecognitionService } = await import("@/lib/speech-recognition")
+              const recognitionService = getRecognitionService()
+              if (recognitionService) {
+                recognitionService.resumeAfterSpeaking()
+              }
+            }
             return
           }
         } else if (contentType?.includes("audio")) {
@@ -79,6 +97,15 @@ export function useVoiceSynthesis() {
             setIsSpeaking(false)
             onSpeakingChange?.(false)
             URL.revokeObjectURL(audioUrl)
+            // Resume recognition after speaking
+            if (typeof window !== "undefined") {
+              import("@/lib/speech-recognition").then(({ getRecognitionService }) => {
+                const recognitionService = getRecognitionService()
+                if (recognitionService) {
+                  recognitionService.resumeAfterSpeaking()
+                }
+              })
+            }
           }
 
           audio.onerror = () => {
@@ -95,14 +122,39 @@ export function useVoiceSynthesis() {
 
         console.log("[v0] Unexpected response format, using browser speech synthesis fallback")
         await speakWithBrowser(text)
+        // Resume recognition after speaking
+        if (typeof window !== "undefined") {
+          const { getRecognitionService } = await import("@/lib/speech-recognition")
+          const recognitionService = getRecognitionService()
+          if (recognitionService) {
+            recognitionService.resumeAfterSpeaking()
+          }
+        }
       } catch (error) {
         console.error("[v0] Voice synthesis error:", error)
         try {
           await speakWithBrowser(text)
+          // Resume recognition after speaking
+          if (typeof window !== "undefined") {
+            const { getRecognitionService } = await import("@/lib/speech-recognition")
+            const recognitionService = getRecognitionService()
+            if (recognitionService) {
+              recognitionService.resumeAfterSpeaking()
+            }
+          }
         } catch (fallbackError) {
           console.error("[v0] Browser speech fallback also failed:", fallbackError)
           setIsSpeaking(false)
           onSpeakingChange?.(false)
+          // Resume recognition even on error
+          if (typeof window !== "undefined") {
+            import("@/lib/speech-recognition").then(({ getRecognitionService }) => {
+              const recognitionService = getRecognitionService()
+              if (recognitionService) {
+                recognitionService.resumeAfterSpeaking()
+              }
+            })
+          }
           throw error
         }
       }

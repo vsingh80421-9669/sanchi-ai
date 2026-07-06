@@ -1,5 +1,7 @@
 export type RecognitionMode = "sleep" | "active" | "locked"
 
+let recognitionServiceInstance: SpeechRecognitionService | null = null
+
 export class SpeechRecognitionService {
   private recognition: any
   private isSupported: boolean
@@ -25,6 +27,9 @@ export class SpeechRecognitionService {
     } else {
       this.isSupported = false
     }
+    
+    // Store instance globally
+    recognitionServiceInstance = this
   }
 
   isAvailable(): boolean {
@@ -307,4 +312,9 @@ export class SpeechRecognitionService {
       }
     }
   }
+}
+
+// Export singleton instance getter
+export function getRecognitionService(): SpeechRecognitionService | null {
+  return recognitionServiceInstance
 }
