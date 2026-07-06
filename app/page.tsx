@@ -85,6 +85,12 @@ export default function Home() {
     ) {
       return "Hello, main Sanchi hoon";
     } 
+    else if (
+      cleanText.includes("Tum is waqt kahan ho") ||
+      cleanText.includes("where are you") 
+    ) {
+      return "main is waqt, aapke phone mein aapke sath Hain";
+    }
     else {
       return "Maaf kijiye Boss, mujhe yeh samajh nahi aaya.";
     }
