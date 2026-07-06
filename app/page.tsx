@@ -63,7 +63,7 @@ export default function Home() {
     const cleanText = text.toLowerCase().trim();
 
     if (
-      cleanText.includes("naam") || 
+      cleanText.includes("नाम") || 
       cleanText.includes("name") || 
       cleanText.includes("sanchi") || 
       cleanText.includes("सांची")
@@ -87,7 +87,9 @@ export default function Home() {
     } 
     else if (
       cleanText.includes("Tum is waqt kahan ho") ||
-      cleanText.includes("where are you") 
+      cleanText.includes("where are you") ||
+      clearText.includes("तुम इस वक्त कहा हो") ||
+      cleanText.includes("तुम कहा हो")
     ) {
       return "main is waqt, aapke phone mein aapke sath Hain";
     }
