@@ -40,22 +40,42 @@ export default function Home() {
     recognition.start();
   };
 
-  const getReply = (text: string) => {
-    text = text.toLowerCase();
+    const getReply = (text: string) => {
+    // lowercase karna aur aage-piche ke extra spaces hatana
+    const cleanText = text.toLowerCase().trim();
 
-    if (text.includes("hello") || text.includes("hi")) {
-      return "Hello, main Sanchi hoon";
-    } 
-    else if (text.includes("naam")) {
+    // 1. Naam ke liye check (English aur Hindi dono font)
+    if (
+      cleanText.includes("naam") || 
+      cleanText.includes("name") || 
+      cleanText.includes("sanchi") || 
+      cleanText.includes("सांची")
+    ) {
       return "Mera naam Sanchi AI hai";
     } 
-    else if (text.includes("kaise ho")) {
+    // 2. Hal-chal ke liye check
+    else if (
+      cleanText.includes("kaise ho") || 
+      cleanText.includes("kaise hain") || 
+      cleanText.includes("कैसे ho") || 
+      cleanText.includes("कैसे हो")
+    ) {
       return "Main thik hoon, shukriya puchhne ke liye";
     } 
+    // 3. Hello/Hi ke liye check
+    else if (
+      cleanText.includes("hello") || 
+      cleanText.includes("hi") || 
+      cleanText.includes("हे")
+    ) {
+      return "Hello, main Sanchi hoon";
+    } 
+    // 4. Default jab kuch match na ho
     else {
       return "Maaf kijiye Boss, mujhe yeh samajh nahi aaya.";
     }
   };
+
 
   const speak = (replyText: string) => {
     if ("speechSynthesis" in window) {
