@@ -1,298 +1,220 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
-export default function IntegratedSaaSPlatform() {
-  // Modes: 'owner' (Personal - Sanchi) or 'client' (Commercial - Zephyr)
+export default function SanchiUltimateDashboard() {
+  // Identities: Owner (Sanchi AI) vs Client (Zephyr AI)
   const [appMode, setAppMode] = useState<"owner" | "client">("owner");
-  const [activeModule, setActiveModule] = useState<string>("dashboard");
-  const [inputValue, setInputValue] = useState<string>("");
-  const [secondaryInput, setSecondaryInput] = useState<string>(""); // For options/history
-  const [apiResponse, setApiResponse] = useState<any>(null);
+  const [selectedModule, setSelectedModule] = useState<string>("chatbot/custom");
+  const [inputMessage, setInputMessage] = useState<string>("");
+  const [chatHistory, setChatHistory] = useState<Array<{ sender: string; text: string }>>([]);
   const [loading, setLoading] = useState<boolean>(false);
+  const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
 
-  // Simulated internal lists for Notes and Reminders panels
-  const [notes, setNotes] = useState<string[]>(["Zombie project script outline", "Vartman visualization technique routine"]);
-  const [reminders, setReminders] = useState<string[]>(["Check Vercel build status", "Sync with Tejasviraj for design review"]);
+  // System status parameters
+  const currentAiName = appMode === "owner" ? "Sanchi AI" : "Zephyr AI";
 
-  // API handler that calls the routes you created in the app/api folder
-  const handleApiCall = async (endpoint: string, payload: object) => {
+  // Voice Function: Sanchi/Zephyr ko bulwane ke liye function
+  const speakText = (text: string) => {
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.cancel(); // Purani aawaz ko rokne ke liye
+      const utterance = new SpeechSynthesisUtterance(text);
+      
+      // Hindi aur Indian English support check karne ke liye
+      const voices = window.speechSynthesis.getVoices();
+      const indianVoice = voices.find(v => v.lang.includes("IN") || v.lang.includes("hi"));
+      if (indianVoice) utterance.voice = indianVoice;
+      
+      utterance.onstart = () => setIsSpeaking(true);
+      utterance.onend = () => setIsSpeaking(false);
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
+  // Jab bhi voices load hon (browser compatibility ke liye)
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.getVoices();
+    }
+  }, []);
+
+  // Main API Call handler
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inputMessage.trim()) return;
+
+    const userMsg = inputMessage;
+    setChatHistory((prev) => [...prev, { sender: "user", text: userMsg }]);
+    setInputMessage("");
     setLoading(true);
-    setApiResponse(null);
+
+    // Dynamic Payload Builder based on what the API endpoints expect
+    let payload: any = { ai_provider: "gemini" };
+    if (selectedModule === "chatbot/custom") {
+      payload.system_instruction = "You are a helpful AI assistant.";
+      payload.user_message = userMsg;
+    } else if (selectedModule === "programming") {
+      payload.code_or_prompt = userMsg;
+      payload.language = "python";
+    } else if (selectedModule === "decision-maker") {
+      payload.scenario = userMsg;
+      payload.options = ["Option A", "Option B"];
+    } else if (selectedModule === "translate") {
+      payload.text = userMsg;
+      payload.target_language = "English";
+    } else if (selectedModule === "youtube-recommender") {
+      payload.user_watch_history = ["Cinematic Editing", "Coding"];
+      payload.current_search = userMsg;
+    } else {
+      // For research, robotics, education, spam-filter, voice-assistant
+      payload.query = userMsg;
+    }
+
     try {
-      const res = await fetch(`/api/${endpoint}`, {
+      const res = await fetch(`/api/${selectedModule}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+      
       const data = await res.json();
-      setApiResponse(data);
+      
+      // Extracting the text response based on API response key structure
+      let aiReply = data.reply || data.result || data.explanation || data.code || data.analysis || data.translated_text || data.assistant_speech_reply || JSON.stringify(data);
+      
+      // Clean up stringified JSON if needed
+      if (typeof aiReply === "object") aiReply = JSON.stringify(aiReply);
+
+      setChatHistory((prev) => [...prev, { sender: "ai", text: aiReply }]);
+      
+      // AI Se Bolne Ke Liye Request Trigger
+      speakText(aiReply);
+
     } catch (error) {
-      setApiResponse({ status: "error", message: "Failed to communicate with AI model" });
+      setChatHistory((prev) => [...prev, { sender: "ai", text: "System Error: Connection failed." }]);
     } finally {
       setLoading(false);
     }
   };
 
-  const currentAiName = appMode === "owner" ? "Sanchi AI" : "Zephyr AI";
-
   return (
-    <div className={`min-h-screen font-sans transition-colors duration-300 ${appMode === "owner" ? "bg-slate-900 text-slate-100" : "bg-zinc-950 text-zinc-100"}`}>
+    <div className={`min-h-screen flex flex-col font-sans transition-all duration-300 ${appMode === "owner" ? "bg-slate-950 text-slate-100" : "bg-neutral-950 text-neutral-100"}`}>
       
-      {/* HEADER SECTION */}
-      <header className="border-b border-slate-800 p-4 flex justify-between items-center shadow-md">
+      {/* TOP HEADER PLATFORM CONSOLE */}
+      <header className="border-b border-slate-800 p-4 flex justify-between items-center bg-slate-900/50 backdrop-blur-md sticky top-0 z-50">
         <div>
-          <h1 className="text-2xl font-black tracking-wider text-emerald-400">
-            {appMode === "owner" ? "SANCHI AI // INTERNAL" : "ZEPHYR CORE INTERACTIVE"}
+          <h1 className="text-xl font-black tracking-widest text-cyan-400">
+            {appMode === "owner" ? "🛡️ SANCHI ENGINE v5.2" : "⚡ ZEPHYR ENTERPRISE AI"}
           </h1>
-          <p className="text-xs text-slate-400">Viraaj Tech Enterprise Infrastructure</p>
+          <p className="text-xs text-slate-400 font-mono">Viraaj Tech Core Systems Inc.</p>
         </div>
-        
-        {/* Secret Toggle Switch for Meetings */}
-        <button 
-          onClick={() => setAppMode(appMode === "owner" ? "client" : "owner")}
-          className="px-4 py-2 rounded text-xs font-bold uppercase tracking-widest bg-emerald-600 hover:bg-emerald-500 text-white shadow transition-all"
+
+        {/* Toggle View Switcher */}
+        <button
+          onClick={() => {
+            setAppMode(appMode === "owner" ? "client" : "owner");
+            if (typeof window !== "undefined") window.speechSynthesis.cancel();
+          }}
+          className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded text-xs font-bold tracking-wider uppercase transition-all shadow-lg"
         >
-          Active View: {appMode === "owner" ? "Owner (Private)" : "Client (Demo)"}
+          Mode: {appMode === "owner" ? "Owner (Sanchi)" : "Client (Zephyr)"}
         </button>
       </header>
 
-      <div className="flex flex-col md:flex-row min-h-[calc(min-h-screen-73px)]">
+      {/* CORE WORKSPACE CONNECTOR */}
+      <div className="flex-1 max-w-4xl w-full mx-auto p-4 flex flex-col min-h-[calc(100vh-73px)]">
         
-        {/* SIDEBAR NAVIGATION PANEL */}
-        <aside className="w-full md:w-64 border-r border-slate-800 p-4 flex flex-col gap-2">
-          <div className="text-xs font-semibold text-slate-500 uppercase px-2 mb-2">Core System</div>
-          <button onClick={() => setActiveModule("dashboard")} className={`w-full text-left px-3 py-2 rounded text-sm font-medium transition-colors ${activeModule === "dashboard" ? "bg-slate-800 text-emerald-400" : "hover:bg-slate-800"}`}>
-            📊 System Dashboard
-          </button>
-          <button onClick={() => setActiveModule("notes")} className={`w-full text-left px-3 py-2 rounded text-sm font-medium transition-colors ${activeModule === "notes" ? "bg-slate-800 text-emerald-400" : "hover:bg-slate-800"}`}>
-            📝 Notes & Architecture
-          </button>
-          <button onClick={() => setActiveModule("reminders")} className={`w-full text-left px-3 py-2 rounded text-sm font-medium transition-colors ${activeModule === "reminders" ? "bg-slate-800 text-emerald-400" : "hover:bg-slate-800"}`}>
-            🔔 Ops Reminders
-          </button>
+        {/* MODULE PICKER SELECTOR CONTAINER */}
+        <div className="mb-4 bg-slate-900/80 border border-slate-800 p-4 rounded-xl flex flex-col sm:flex-row gap-3 items-center justify-between">
+          <label className="text-sm font-bold text-slate-300 font-mono">Select Target Engine Route:</label>
+          <select
+            value={selectedModule}
+            onChange={(e) => {
+              setSelectedModule(e.target.value);
+              setChatHistory([]);
+            }}
+            className="bg-slate-950 border border-slate-700 text-cyan-400 text-sm rounded-lg p-2.5 focus:ring-cyan-500 focus:border-cyan-500 font-medium"
+          >
+            <option value="chatbot/custom">💬 Custom Chatbot Builder</option>
+            <option value="programming">💻 Programming Buddy Architect</option>
+            <option value="research">🔬 Scientific Research Analyzer</option>
+            <option value="education">🎓 AI Education Coach</option>
+            <option value="decision-maker">⚖️ Risk & Decision Analyzer</option>
+            <option value="robotics">🤖 Robotics Simulator Logic</option>
+            <option value="translate">🌐 Context Slang Translator</option>
+            <option value="spam-filter">🛡️ Content Spam & Sentiment</option>
+            <option value="youtube-recommender">🎥 YouTube Algo Matrix</option>
+            <option value="voice-assistant">🎙️ Voice Intent Extractor</option>
+          </select>
+        </div>
 
-          <div className="text-xs font-semibold text-slate-500 uppercase px-2 mt-4 mb-2">AI Suite Modules</div>
-          <button onClick={() => { setActiveModule("programming"); setApiResponse(null); }} className={`w-full text-left px-3 py-2 rounded text-sm font-medium transition-colors ${activeModule === "programming" ? "bg-slate-800 text-emerald-400" : "hover:bg-slate-800"}`}>
-            💻 Programming Buddy
-          </button>
-          <button onClick={() => { setActiveModule("research"); setApiResponse(null); }} className={`w-full text-left px-3 py-2 rounded text-sm font-medium transition-colors ${activeModule === "research" ? "bg-slate-800 text-emerald-400" : "hover:bg-slate-800"}`}>
-            🔬 Research Analyzer
-          </button>
-          <button onClick={() => { setActiveModule("education"); setApiResponse(null); }} className={`w-full text-left px-3 py-2 rounded text-sm font-medium transition-colors ${activeModule === "education" ? "bg-slate-800 text-emerald-400" : "hover:bg-slate-800"}`}>
-            🎓 Education Coach
-          </button>
-          <button onClick={() => { setActiveModule("translate"); setApiResponse(null); }} className={`w-full text-left px-3 py-2 rounded text-sm font-medium transition-colors ${activeModule === "translate" ? "bg-slate-800 text-emerald-400" : "hover:bg-slate-800"}`}>
-            🌐 Local Context Translator
-          </button>
-          <button onClick={() => { setActiveModule("youtube"); setApiResponse(null); }} className={`w-full text-left px-3 py-2 rounded text-sm font-medium transition-colors ${activeModule === "youtube" ? "bg-slate-800 text-emerald-400" : "hover:bg-slate-800"}`}>
-            🎥 Content Recommendation
-          </button>
-        </aside>
-
-        {/* MAIN WORKSPACE DISPLAY */}
-        <main className="flex-1 p-6">
-          
-          {/* 1. DASHBOARD PANEL */}
-          {activeModule === "dashboard" && (
-            <div className="space-y-6">
-              <div className="bg-slate-800/40 border border-slate-800 p-6 rounded-lg">
-                <h2 className="text-xl font-bold text-white mb-2">System Status Console</h2>
-                <p className="text-sm text-slate-400">
-                  {appMode === "owner" 
-                    ? "Welcome back Vivek. System running in complete stealth node. Internal core initialized as Sanchi AI." 
-                    : "Welcome Client. System parameters verified. Global multi-model modules linked successfully under Zephyr AI Engine."}
-                </p>
-                <div className="mt-4 flex gap-4 text-xs font-mono text-emerald-400">
-                  <span>● Core Status: Active</span>
-                  <span>● Routes Configured: 11 API Endpoints</span>
-                </div>
+        {/* CHAT MAIN VIEW LOG */}
+        <div className="flex-1 bg-slate-900/40 border border-slate-800/80 rounded-2xl p-4 overflow-y-auto mb-4 min-h-[350px] max-h-[500px] flex flex-col gap-4 shadow-inner">
+          {chatHistory.length === 0 && (
+            <div className="text-center my-auto space-y-2">
+              <div className={`w-12 h-12 mx-auto rounded-full flex items-center justify-center border text-xl ${isSpeaking ? "animate-bounce bg-cyan-500/20 border-cyan-400 text-cyan-400" : "bg-slate-800 border-slate-700"}`}>
+                {isSpeaking ? "🔊" : "🤖"}
               </div>
+              <p className="text-sm text-slate-400 font-mono">
+                {appMode === "owner" 
+                  ? "System running in stealth. State your directive, Vivek." 
+                  : "Welcome. Select an AI operation module above to begin engine validation."}
+              </p>
+            </div>
+          )}
 
-              {/* Voice Visualizer Mock Integration */}
-              <div className="border border-slate-800 p-6 rounded-lg bg-slate-900 flex flex-col items-center justify-center text-center">
-                <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500 flex items-center justify-center mb-4 animate-pulse">
-                  <span className="text-xl">🎙️</span>
-                </div>
-                <h3 className="font-bold text-sm">Voice Synthesis Visualizer Engine</h3>
-                <p className="text-xs text-slate-500 mt-1">Listening parameters active. Click space to prompt via voice array.</p>
+          {chatHistory.map((msg, i) => (
+            <div key={i} className={`flex flex-col max-w-[80%] ${msg.sender === "user" ? "ml-auto items-end" : "mr-auto items-start"}`}>
+              <span className="text-[10px] font-mono text-slate-500 mb-1 px-1 uppercase tracking-wider">
+                {msg.sender === "user" ? "Authorized Owner" : currentAiName}
+              </span>
+              <div className={`p-3 rounded-2xl text-sm leading-relaxed ${msg.sender === "user" ? "bg-cyan-600 text-white rounded-tr-none shadow-md" : "bg-slate-800 text-slate-200 rounded-tl-none border border-slate-700/60"}`}>
+                <p className="whitespace-pre-wrap">{msg.text}</p>
               </div>
             </div>
-          )}
+          ))}
 
-          {/* 2. NOTES PANEL */}
-          {activeModule === "notes" && (
-            <div className="space-y-4">
-              <h2 className="text-lg font-bold">Project Notes File System</h2>
-              <div className="grid gap-2">
-                {notes.map((note, index) => (
-                  <div key={index} className="p-3 bg-slate-800 rounded border border-slate-700 text-sm font-mono">
-                    {note}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* 3. REMINDERS PANEL */}
-          {activeModule === "reminders" && (
-            <div className="space-y-4">
-              <h2 className="text-lg font-bold">Operational Reminders Log</h2>
-              <div className="grid gap-2">
-                {reminders.map((rem, index) => (
-                  <div key={index} className="p-3 bg-slate-800/60 rounded border border-slate-700/60 text-sm flex items-center gap-2">
-                    <span className="text-emerald-500">✓</span> {rem}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* 4. PROGRAMMING BUDDY PANEL */}
-          {activeModule === "programming" && (
-            <div className="space-y-4">
-              <h2 className="text-lg font-bold">💻 Programming Buddy & Architect Suite</h2>
-              <input 
-                type="text" 
-                placeholder="Target Language (e.g., python, typescript)" 
-                value={secondaryInput}
-                onChange={(e) => setSecondaryInput(e.target.value)}
-                className="w-full p-2 bg-slate-800 border border-slate-700 rounded text-sm"
-              />
-              <textarea 
-                rows={5} 
-                placeholder="Paste your source code logic or build requirement prompt here..."
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                className="w-full p-2 bg-slate-800 border border-slate-700 rounded text-sm font-mono"
-              />
-              <button 
-                onClick={() => handleApiCall("programming", { code_or_prompt: inputValue, language: secondaryInput || "python" })}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded text-sm font-bold transition-all"
-              >
-                Execute Analysis
-              </button>
-            </div>
-          )}
-
-          {/* 5. RESEARCH ANALYZER PANEL */}
-          {activeModule === "research" && (
-            <div className="space-y-4">
-              <h2 className="text-lg font-bold">🔬 Scientific Research & Hypothesis Data Engine</h2>
-              <textarea 
-                rows={4} 
-                placeholder="Enter scientific queries, concepts to break down, or technical data sheets..."
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                className="w-full p-2 bg-slate-800 border border-slate-700 rounded text-sm"
-              />
-              <button 
-                onClick={() => handleApiCall("research", { query: inputValue })}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded text-sm font-bold"
-              >
-                Analyze Hypothesis
-              </button>
-            </div>
-          )}
-
-          {/* 6. EDUCATION TUTOR PANEL */}
-          {activeModule === "education" && (
-            <div className="space-y-4">
-              <h2 className="text-lg font-bold">🎓 Dynamic AI Education Coach</h2>
-              <textarea 
-                rows={4} 
-                placeholder="Explain what concept? (e.g., quantum mechanics, backend data structures)..."
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                className="w-full p-2 bg-slate-800 border border-slate-700 rounded text-sm"
-              />
-              <button 
-                onClick={() => handleApiCall("education", { query: inputValue })}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded text-sm font-bold"
-              >
-                Format Lesson Structure
-              </button>
-            </div>
-          )}
-
-          {/* 7. TRANSLATOR PANEL */}
-          {activeModule === "translate" && (
-            <div className="space-y-4">
-              <h2 className="text-lg font-bold">🌐 Local Cultural Slang Context Translator</h2>
-              <input 
-                type="text" 
-                placeholder="Target Language (e.g., Spanish, German, Hindi)" 
-                value={secondaryInput}
-                onChange={(e) => setSecondaryInput(e.target.value)}
-                className="w-full p-2 bg-slate-800 border border-slate-700 rounded text-sm"
-              />
-              <textarea 
-                rows={3} 
-                placeholder="Enter formal or informal conversational string data..."
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                className="w-full p-2 bg-slate-800 border border-slate-700 rounded text-sm"
-              />
-              <button 
-                onClick={() => handleApiCall("translate", { text: inputValue, target_language: secondaryInput })}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded text-sm font-bold"
-              >
-                Generate Translation Context
-              </button>
-            </div>
-          )}
-
-          {/* 8. YOUTUBE RECOMMENDER PANEL */}
-          {activeModule === "youtube" && (
-            <div className="space-y-4">
-              <h2 className="text-lg font-bold">🎥 YouTube Algorithm Matrix Simulator</h2>
-              <input 
-                type="text" 
-                placeholder="Watch history context array (comma separated)" 
-                value={secondaryInput}
-                onChange={(e) => setSecondaryInput(e.target.value)}
-                className="w-full p-2 bg-slate-800 border border-slate-700 rounded text-sm"
-              />
-              <textarea 
-                rows={3} 
-                placeholder="Current search interest focus string..."
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                className="w-full p-2 bg-slate-800 border border-slate-700 rounded text-sm"
-              />
-              <button 
-                onClick={() => handleApiCall("youtube-recommender", { 
-                  user_watch_history: secondaryInput.split(","), 
-                  current_search: inputValue 
-                })}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded text-sm font-bold"
-              >
-                Synthesize Retention Strategy
-              </button>
-            </div>
-          )}
-
-          {/* CENTRAL INTERACTIVE RESPONSE LAYER */}
           {loading && (
-            <div className="mt-6 p-4 rounded bg-slate-800/20 text-sm font-mono animate-pulse text-emerald-400 border border-emerald-500/20">
-              🔄 {currentAiName} parsing data arrays... Processing query matrix...
+            <div className="flex mr-auto items-center gap-2 text-xs font-mono text-cyan-400 animate-pulse bg-slate-900 p-2 rounded-lg border border-slate-800">
+              <span>⚡ {currentAiName} parsing database arrays...</span>
             </div>
           )}
+        </div>
 
-          {apiResponse && (
-            <div className="mt-6 p-6 rounded-lg bg-slate-900 border border-slate-800">
-              <div className="text-xs uppercase font-mono tracking-widest text-emerald-400 mb-2 font-bold">
-                Output Stream from {currentAiName}
-              </div>
-              <pre className="text-sm font-mono whitespace-pre-wrap leading-relaxed text-slate-300 bg-slate-950 p-4 rounded border border-slate-850">
-                {apiResponse.code || apiResponse.explanation || apiResponse.translated_text || apiResponse.recommendations || apiResponse.result || JSON.stringify(apiResponse, null, 2)}
-              </pre>
-            </div>
-          )}
+        {/* INPUT TRANSMISSION CONSOLE */}
+        <form onSubmit={handleSendMessage} className="flex gap-2 bg-slate-900 p-2 rounded-xl border border-slate-800 shadow-xl">
+          <input
+            type="text"
+            value={inputMessage}
+            onChange={(e) => setInputMessage(e.target.value)}
+            placeholder={loading ? "Processing query array..." : `Prompt ${currentAiName} on routing node...`}
+            disabled={loading}
+            className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-cyan-500 font-mono disabled:opacity-50"
+          />
+          <button
+            type="submit"
+            disabled={loading || !inputMessage.trim()}
+            className="bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-bold px-5 py-2.5 rounded-lg text-sm transition-all font-mono shadow-md"
+          >
+            EXECUTE
+          </button>
+        </form>
 
-        </main>
+        {/* Voice control stop indicator panel */}
+        {isSpeaking && (
+          <div className="mt-2 text-center">
+            <button 
+              type="button"
+              onClick={() => { if(typeof window !== 'undefined') window.speechSynthesis.cancel(); setIsSpeaking(false); }}
+              className="text-[11px] font-mono font-bold text-rose-400 hover:text-rose-300 bg-rose-950/30 border border-rose-900/50 px-3 py-1 rounded-full animate-pulse"
+            >
+              ■ Mute Audio Stream
+            </button>
+          </div>
+        )}
+
       </div>
     </div>
   );
         }
-              
+        
