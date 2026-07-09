@@ -146,7 +146,7 @@ export default function SanchiUltimateDashboard() {
         paddingBottom: "12px"
       }}>
         <div>
-          <h1 style={{ color: "#22d3ee", margin: 0, fontSize: "22px", fontWeight: "900", trackingLetter: "2px" }}>
+          <h1 style={{ color: "#22d3ee", margin: 0, fontSize: "22px", fontWeight: "900", letterSpacing: "2px" }}>
             {appMode === "owner" ? "🛡️ SANCHI ENGINE v5.2" : "⚡ ZEPHYR ENGINE"}
           </h1>
           <small style={{ color: "#64748b" }}>Viraaj Tech Multitasking Node</small>
