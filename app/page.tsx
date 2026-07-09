@@ -1,25 +1,32 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { Mic, MicOff, Volume2, VolumeX, Send, RefreshCw } from "lucide-react";
 
 export default function SanchiUltimateDashboard() {
-  // Identities: Owner (Sanchi AI) vs Client (Zephyr AI)
   const [appMode, setAppMode] = useState<"owner" | "client">("owner");
   const [selectedModule, setSelectedModule] = useState<string>("chatbot");
   const [inputMessage, setInputMessage] = useState<string>("");
   const [chatHistory, setChatHistory] = useState<Array<{ sender: string; text: string }>>([]);
   const [loading, setLoading] = useState<boolean>(false);
+  
+  // Voice Controls State
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
+  const [isMuted, setIsMuted] = useState<boolean>(false); // Speaker State
+  const [isListening, setIsListening] = useState<boolean>(false); // Mic State
 
+  const recognitionRef = useRef<any>(null);
   const currentAiName = appMode === "owner" ? "Sanchi AI" : "Zephyr AI";
 
-  // Voice Function
+  // 🔊 1. Speaker Logic (Text to Speech)
   const speakText = (text: string) => {
+    if (isMuted) return; // Agar mute hai toh mat bolo
     if (typeof window !== "undefined" && window.speechSynthesis) {
       window.speechSynthesis.cancel(); 
       const utterance = new SpeechSynthesisUtterance(text);
       
       const voices = window.speechSynthesis.getVoices();
+      // Google Hindi or Indian English voice selection
       const indianVoice = voices.find(v => v.lang.includes("IN") || v.lang.includes("hi"));
       if (indianVoice) utterance.voice = indianVoice;
       
@@ -29,77 +36,120 @@ export default function SanchiUltimateDashboard() {
     }
   };
 
+  // 🎙️ 2. Mic Logic (Speech to Text)
   useEffect(() => {
-    if (typeof window !== "undefined" && window.speechSynthesis) {
-      window.speechSynthesis.getVoices();
+    if (typeof window !== "undefined") {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        const rec = new SpeechRecognition();
+        rec.continuous = false;
+        rec.lang = "hi-IN"; // Set to Hindi / Hinglish listening
+        rec.interimResults = false;
+
+        rec.onstart = () => setIsListening(true);
+        rec.onend = () => setIsListening(false);
+        
+        rec.onresult = (event: any) => {
+          const transcript = event.results[0][0].transcript;
+          if (transcript.trim()) {
+            setInputMessage(transcript);
+          }
+        };
+
+        recognitionRef.current = rec;
+      }
     }
   }, []);
 
-  // Main API Call handler
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inputMessage.trim()) return;
+  const toggleMic = () => {
+    if (!recognitionRef.current) {
+      alert("Aapke browser me mic support nahi hai bhai.");
+      return;
+    }
+    if (isListening) {
+      recognitionRef.current.stop();
+    } else {
+      if (typeof window !== "undefined" && window.speechSynthesis) {
+        window.speechSynthesis.cancel(); // Bolna band karo jab mic chalu ho
+      }
+      recognitionRef.current.start();
+    }
+  };
 
-    const userMsg = inputMessage;
-    setChatHistory((prev) => [...prev, { sender: "user", text: userMsg }]);
+  // Main API Call handler (Universal Payload Sync)
+  const handleSendMessage = async (e?: React.FormEvent, directMsg?: string) => {
+    if (e) e.preventDefault();
+    const msgToSend = directMsg || inputMessage;
+    if (!msgToSend.trim()) return;
+
+    setChatHistory((prev) => [...prev, { sender: "user", text: msgToSend }]);
     setInputMessage("");
     setLoading(true);
 
-    // Dynamic Payload Builder - Fully Fixed for Exact Endpoints
-    let payload: any = { ai_provider: "gemini" };
+    let payload: any = { 
+      message: msgToSend,
+      user_message: msgToSend,
+      code_or_prompt: msgToSend,
+      conversationHistory: chatHistory.map(h => ({
+        role: h.sender === "user" ? "user" : "assistant",
+        content: h.text
+      }))
+    };
+
     if (selectedModule === "chatbot") {
-      payload.system_instruction = "You are a helpful AI assistant.";
-      payload.user_message = userMsg;
+      payload.system_instruction = "Tum Sanchi ho. Hamesha Hindi ya Hinglish me baat karo. Boss ko 'Boss' bolna.";
     } else if (selectedModule === "programming") {
-      payload.code_or_prompt = userMsg;
       payload.language = "python";
-    } else if (selectedModule === "decision-maker") {
-      payload.scenario = userMsg;
-      // Dyanmic options extracted via split logic if user inputs comma, else sets default array
-      payload.options = userMsg.includes(",") ? userMsg.split(",") : ["Yes", "No"];
-    } else if (selectedModule === "translate") {
-      payload.text = userMsg;
-      payload.target_language = "English";
-    } else if (selectedModule === "youtube-recommender") {
-      payload.user_watch_history = ["Cinematic Editing", "Coding"];
-      payload.current_search = userMsg;
-    } else {
-      payload.query = userMsg;
     }
 
     try {
-      const res = await fetch(`/api/${selectedModule}`, {
+      const targetRoute = selectedModule === "ai-brain" ? "chatbot" : selectedModule;
+      const res = await fetch(`/api/${targetRoute}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       
       const data = await res.json();
-      
-      let aiReply = data.reply || data.result || data.explanation || data.code || data.analysis || data.translated_text || data.assistant_speech_reply || JSON.stringify(data);
+      let aiReply = data.reply || data.response || data.result || data.code || data.error || "No response";
       
       if (typeof aiReply === "object") aiReply = JSON.stringify(aiReply);
 
       setChatHistory((prev) => [...prev, { sender: "ai", text: aiReply }]);
-      speakText(aiReply);
+      speakText(aiReply); // Sanchi bol kar sunayegi
 
     } catch (error) {
-      setChatHistory((prev) => [...prev, { sender: "ai", text: "System Error: Connection failed." }]);
+      setChatHistory((prev) => [...prev, { sender: "ai", text: "System Error: Connection failed, Boss." }]);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className={`min-h-screen flex flex-col font-sans transition-all duration-300 ${appMode === "owner" ? "bg-slate-950 text-slate-100" : "bg-neutral-950 text-neutral-100"}`}>
+    <div style={{
+      backgroundColor: "#000000", // STRICT JET BLACK BACKGROUND
+      color: "#f8fafc",
+      minHeight: "100vh",
+      fontFamily: "monospace",
+      padding: "16px",
+      display: "flex",
+      flexDirection: "column",
+      gap: "14px"
+    }}>
       
-      {/* HEADER PLATFORM */}
-      <header className="border-b border-slate-800 p-4 flex justify-between items-center bg-slate-900/50 backdrop-blur-md sticky top-0 z-50">
+      {/* 👑 HEADER SYSTEM */}
+      <header style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        borderBottom: "2px solid #1e293b",
+        paddingBottom: "12px"
+      }}>
         <div>
-          <h1 className="text-xl font-black tracking-widest text-cyan-400">
-            {appMode === "owner" ? "🛡️ SANCHI ENGINE v5.2" : "⚡ ZEPHYR ENTERPRISE AI"}
+          <h1 style={{ color: "#22d3ee", margin: 0, fontSize: "22px", fontWeight: "900", trackingLetter: "2px" }}>
+            {appMode === "owner" ? "🛡️ SANCHI ENGINE v5.2" : "⚡ ZEPHYR ENGINE"}
           </h1>
-          <p className="text-xs text-slate-400 font-mono">Viraaj Tech Core Systems Inc.</p>
+          <small style={{ color: "#64748b" }}>Viraaj Tech Multitasking Node</small>
         </div>
 
         <button
@@ -107,105 +157,229 @@ export default function SanchiUltimateDashboard() {
             setAppMode(appMode === "owner" ? "client" : "owner");
             if (typeof window !== "undefined") window.speechSynthesis.cancel();
           }}
-          className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded text-xs font-bold tracking-wider uppercase transition-all shadow-lg"
+          style={{
+            backgroundColor: appMode === "owner" ? "#0891b2" : "#16a34a",
+            color: "#fff",
+            border: "none",
+            padding: "8px 14px",
+            borderRadius: "6px",
+            fontWeight: "bold",
+            fontSize: "12px",
+            cursor: "pointer"
+          }}
         >
-          Mode: {appMode === "owner" ? "Owner (Sanchi)" : "Client (Zephyr)"}
+          {appMode === "owner" ? "Owner (Sanchi)" : "Client (Zephyr)"}
         </button>
       </header>
 
-      {/* CORE WORKSPACE */}
-      <div className="flex-1 max-w-4xl w-full mx-auto p-4 flex flex-col min-h-[calc(100vh-73px)]">
-        
-        {/* MODULE SELECTOR */}
-        <div className="mb-4 bg-slate-900/80 border border-slate-800 p-4 rounded-xl flex flex-col sm:flex-row gap-3 items-center justify-between">
-          <label className="text-sm font-bold text-slate-300 font-mono">Select Target Engine Route:</label>
-          <select
-            value={selectedModule}
-            onChange={(e) => {
-              setSelectedModule(e.target.value);
-              setChatHistory([]);
-            }}
-            className="bg-slate-950 border border-slate-700 text-cyan-400 text-sm rounded-lg p-2.5 focus:ring-cyan-500 focus:border-cyan-500 font-medium"
-          >
-            <option value="chatbot">💬 Custom Chatbot Builder</option>
-            <option value="programming">💻 Programming Buddy Architect</option>
-            <option value="research">🔬 Scientific Research Analyzer</option>
-            <option value="education">🎓 AI Education Coach</option>
-            <option value="decision-maker">⚖️ Risk & Decision Analyzer</option>
-            <option value="robotics">🤖 Robotics Simulator Logic</option>
-            <option value="translate">🌐 Context Slang Translator</option>
-            <option value="spam-filer">🛡️ Content Spam & Sentiment</option>
-            <option value="youtube-recommender">🎥 YouTube Algo Matrix</option>
-            <option value="voice-assistant">🎙️ Voice Intent Extractor</option>
-            <option value="ai-brain">🧠 SANCHI Core Intelligence</option>
-          </select>
-        </div>
-
-        {/* CHAT LOG VIEW */}
-        <div className="flex-1 bg-slate-900/40 border border-slate-800/80 rounded-2xl p-4 overflow-y-auto mb-4 min-h-[350px] max-h-[500px] flex flex-col gap-4 shadow-inner">
-          {chatHistory.length === 0 && (
-            <div className="text-center my-auto space-y-2">
-              <div className={`w-12 h-12 mx-auto rounded-full flex items-center justify-center border text-xl ${isSpeaking ? "animate-bounce bg-cyan-500/20 border-cyan-400 text-cyan-400" : "bg-slate-800 border-slate-700"}`}>
-                {isSpeaking ? "🔊" : "🤖"}
-              </div>
-              <p className="text-sm text-slate-400 font-mono">
-                {appMode === "owner" 
-                  ? "System running in stealth. State your directive, Vivek." 
-                  : "Welcome. Select an AI operation module above to begin engine validation."}
-              </p>
-            </div>
-          )}
-
-          {chatHistory.map((msg, i) => (
-            <div key={i} className={`flex flex-col max-w-[80%] ${msg.sender === "user" ? "ml-auto items-end" : "mr-auto items-start"}`}>
-              <span className="text-[10px] font-mono text-slate-500 mb-1 px-1 uppercase tracking-wider">
-                {msg.sender === "user" ? "Authorized Owner" : currentAiName}
-              </span>
-              <div className={`p-3 rounded-2xl text-sm leading-relaxed ${msg.sender === "user" ? "bg-cyan-600 text-white rounded-tr-none shadow-md" : "bg-slate-800 text-slate-200 rounded-tl-none border border-slate-700/60"}`}>
-                <p className="whitespace-pre-wrap">{msg.text}</p>
-              </div>
-            </div>
-          ))}
-
-          {loading && (
-            <div className="flex mr-auto items-center gap-2 text-xs font-mono text-cyan-400 animate-pulse bg-slate-900 p-2 rounded-lg border border-slate-800">
-              <span>⚡ {currentAiName} parsing database arrays...</span>
-            </div>
-          )}
-        </div>
-
-        {/* CONSOLE INPUT */}
-        <form onSubmit={handleSendMessage} className="flex gap-2 bg-slate-900 p-2 rounded-xl border border-slate-800 shadow-xl">
-          <input
-            type="text"
-            value={inputMessage}
-            onChange={(e) => setInputMessage(e.target.value)}
-            placeholder={loading ? "Processing query array..." : `Prompt ${currentAiName} on routing node...`}
-            disabled={loading}
-            className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-cyan-500 font-mono disabled:opacity-50"
-          />
+      {/* ⚙️ CONTROLS BAR (SPEAKER & MIC CONTROL) */}
+      <div style={{
+        backgroundColor: "#0b0f19",
+        border: "1px solid #1e293b",
+        padding: "10px",
+        borderRadius: "8px",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center"
+      }}>
+        <div style={{ display: "flex", gap: "8px" }}>
+          {/* SPEAKER CONTROL */}
           <button
-            type="submit"
-            disabled={loading || !inputMessage.trim()}
-            className="bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-bold px-5 py-2.5 rounded-lg text-sm transition-all font-mono shadow-md"
+            onClick={() => {
+              if (!isMuted && typeof window !== "undefined") window.speechSynthesis.cancel();
+              setIsMuted(!isMuted);
+            }}
+            style={{
+              backgroundColor: isMuted ? "#3f1d1d" : "#1e293b",
+              border: "1px solid " + (isMuted ? "#f43f5e" : "#475569"),
+              color: isMuted ? "#f43f5e" : "#38bdf8",
+              padding: "8px 12px",
+              borderRadius: "6px",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              fontSize: "12px",
+              fontWeight: "bold"
+            }}
           >
-            EXECUTE
+            {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+            {isMuted ? "SPEAKER OFF" : "SPEAKER ON"}
           </button>
-        </form>
+        </div>
 
-        {isSpeaking && (
-          <div className="mt-2 text-center">
-            <button 
-              type="button"
-              onClick={() => { if(typeof window !== 'undefined') window.speechSynthesis.cancel(); setIsSpeaking(false); }}
-              className="text-[11px] font-mono font-bold text-rose-400 hover:text-rose-300 bg-rose-950/30 border border-rose-900/50 px-3 py-1 rounded-full animate-pulse"
-            >
-              ■ Mute Audio Stream
-            </button>
+        {/* CURRENT STATE */}
+        <span style={{ fontSize: "11px", color: isListening ? "#f43f5e" : "#22d3ee" }}>
+          {isListening ? "🔴 LISTENING YOUR VOICE..." : "🟢 STANDBY MATRIX"}
+        </span>
+      </div>
+
+      {/* 📡 ROUTE MANAGER */}
+      <div style={{
+        backgroundColor: "#0b0f19",
+        border: "1px solid #1e293b",
+        padding: "10px",
+        borderRadius: "8px",
+        display: "flex",
+        flexDirection: "column",
+        gap: "6px"
+      }}>
+        <label style={{ fontSize: "11px", color: "#64748b", fontWeight: "bold" }}>TARGET ROUTE:</label>
+        <select
+          value={selectedModule}
+          onChange={(e) => {
+            setSelectedModule(e.target.value);
+            setChatHistory([]);
+          }}
+          style={{
+            backgroundColor: "#000",
+            border: "1px solid #334155",
+            color: "#22d3ee",
+            padding: "8px",
+            borderRadius: "6px",
+            outline: "none"
+          }}
+        >
+          <option value="chatbot">💬 Custom Chatbot Builder</option>
+          <option value="programming">💻 Programming Buddy Architect</option>
+          <option value="research">🔬 Scientific Research Analyzer</option>
+          <option value="education">🎓 AI Education Coach</option>
+          <option value="decision-maker">⚖️ Risk & Decision Analyzer</option>
+          <option value="robotics">🤖 Robotics Simulator Logic</option>
+          <option value="translate">🌐 Context Slang Translator</option>
+          <option value="spam-filer">🛡️ Content Spam & Sentiment</option>
+          <option value="youtube-recommender">🎥 YouTube Algo Matrix</option>
+          <option value="voice-assistant">🎙️ Voice Intent Extractor</option>
+          <option value="ai-brain">🧠 SANCHI Core Intelligence</option>
+        </select>
+      </div>
+
+      {/* 💬 CENTRAL TERMINAL CHAT VIEW */}
+      <div style={{
+        flex: 1,
+        backgroundColor: "#020617",
+        border: "1px solid #1e293b",
+        borderRadius: "12px",
+        padding: "14px",
+        overflowY: "auto",
+        display: "flex",
+        flexDirection: "column",
+        gap: "14px",
+        minHeight: "340px"
+      }}>
+        {chatHistory.length === 0 && (
+          <div style={{ margin: "auto", textAlign: "center", color: "#475569" }}>
+            <div style={{ fontSize: "36px", animation: "pulse 2s infinite" }}>🌐</div>
+            <p style={{ fontSize: "12px", marginTop: "8px" }}>
+              {appMode === "owner" 
+                ? "Stealth matrix active. Mic ya Type karke instruct karein, Vivek." 
+                : "Engine check verified. Type parameters below."}
+            </p>
           </div>
         )}
 
+        {chatHistory.map((msg, i) => (
+          <div key={i} style={{
+            alignSelf: msg.sender === "user" ? "flex-end" : "flex-start",
+            maxWidth: "85%"
+          }}>
+            <div style={{ fontSize: "10px", color: "#475569", marginBottom: "3px", textAlign: msg.sender === "user" ? "right" : "left" }}>
+              {msg.sender === "user" ? "AUTHORIZED OWNER" : currentAiName}
+            </div>
+            <div style={{
+              backgroundColor: msg.sender === "user" ? "#0891b2" : "#1e293b",
+              color: "#f8fafc",
+              padding: "12px 16px",
+              borderRadius: "12px",
+              borderTopRightRadius: msg.sender === "user" ? "0px" : "12px",
+              borderTopLeftRadius: msg.sender === "ai" ? "0px" : "12px",
+              fontSize: "14px",
+              lineHeight: "1.4",
+              whiteSpace: "pre-wrap",
+              border: "1px solid #334155"
+            }}>
+              {msg.text}
+            </div>
+          </div>
+        ))}
+
+        {loading && (
+          <div style={{ color: "#22d3ee", fontSize: "11px", display: "flex", alignItems: "center", gap: "6px" }}>
+            <span style={{ display: "inline-block", width: "6px", height: "6px", backgroundColor: "#22d3ee", borderRadius: "50%" }}></span>
+            Sanchi parsing neural array responses...
+          </div>
+        )}
       </div>
+
+      {/* 🚀 CONSOLE DISPATCH CONTROLS */}
+      <form onSubmit={(e) => handleSendMessage(e)} style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+        
+        {/* 🎙️ MASTER MIC CONTROL BUTTON */}
+        <button
+          type="button"
+          onClick={toggleMic}
+          style={{
+            backgroundColor: isListening ? "#ef4444" : "#1e293b",
+            border: "1px solid " + (isListening ? "#f87171" : "#334155"),
+            color: "#fff",
+            borderRadius: "10px",
+            padding: "12px",
+            cursor: "pointer",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center"
+          }}
+        >
+          {isListening ? <MicOff size={20} /> : <Mic size={20} />}
+        </button>
+
+        <input
+          type="text"
+          value={inputMessage}
+          onChange={(e) => setInputMessage(e.target.value)}
+          placeholder={isListening ? "Boliyen, Sanchi sun rahi hai..." : "Type instruction here, Boss..."}
+          disabled={loading}
+          style={{
+            flex: 1,
+            backgroundColor: "#000",
+            border: "1px solid #334155",
+            borderRadius: "10px",
+            padding: "12px",
+            color: "#fff",
+            fontSize: "14px",
+            outline: "none"
+          }}
+        />
+        
+        <button
+          type="submit"
+          disabled={loading || !inputMessage.trim()}
+          style={{
+            backgroundColor: "#0891b2",
+            color: "#fff",
+            border: "none",
+            borderRadius: "10px",
+            padding: "12px 18px",
+            fontWeight: "bold",
+            cursor: "pointer"
+          }}
+        >
+          <Send size={16} />
+        </button>
+      </form>
+
+      {/* 🇮🇳 proud FOOTER */}
+      <footer style={{
+        textAlign: "center",
+        fontSize: "11px",
+        color: "#475569",
+        marginTop: "4px",
+        borderTop: "1px solid #1e293b",
+        paddingTop: "8px"
+      }}>
+        🚀 SANCHI INTELLIGENCE CORE ENGINE // <strong>MADE IN INDIA 🇮🇳</strong>
+      </footer>
+
     </div>
   );
 }
