@@ -208,5 +208,4 @@ export default function SanchiUltimateDashboard() {
       </div>
     </div>
   );
-    }
-      
+}
