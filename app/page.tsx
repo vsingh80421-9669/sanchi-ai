@@ -5,22 +5,20 @@ import React, { useState, useEffect } from "react";
 export default function SanchiUltimateDashboard() {
   // Identities: Owner (Sanchi AI) vs Client (Zephyr AI)
   const [appMode, setAppMode] = useState<"owner" | "client">("owner");
-  const [selectedModule, setSelectedModule] = useState<string>("chatbot/custom");
+  const [selectedModule, setSelectedModule] = useState<string>("chatbot");
   const [inputMessage, setInputMessage] = useState<string>("");
   const [chatHistory, setChatHistory] = useState<Array<{ sender: string; text: string }>>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
 
-  // System status parameters
   const currentAiName = appMode === "owner" ? "Sanchi AI" : "Zephyr AI";
 
-  // Voice Function: Sanchi/Zephyr ko bulwane ke liye function
+  // Voice Function
   const speakText = (text: string) => {
     if (typeof window !== "undefined" && window.speechSynthesis) {
-      window.speechSynthesis.cancel(); // Purani aawaz ko rokne ke liye
+      window.speechSynthesis.cancel(); 
       const utterance = new SpeechSynthesisUtterance(text);
       
-      // Hindi aur Indian English support check karne ke liye
       const voices = window.speechSynthesis.getVoices();
       const indianVoice = voices.find(v => v.lang.includes("IN") || v.lang.includes("hi"));
       if (indianVoice) utterance.voice = indianVoice;
@@ -31,7 +29,6 @@ export default function SanchiUltimateDashboard() {
     }
   };
 
-  // Jab bhi voices load hon (browser compatibility ke liye)
   useEffect(() => {
     if (typeof window !== "undefined" && window.speechSynthesis) {
       window.speechSynthesis.getVoices();
@@ -48,9 +45,9 @@ export default function SanchiUltimateDashboard() {
     setInputMessage("");
     setLoading(true);
 
-    // Dynamic Payload Builder based on what the API endpoints expect
+    // Dynamic Payload Builder - Fully Fixed for Exact Endpoints
     let payload: any = { ai_provider: "gemini" };
-    if (selectedModule === "chatbot/custom") {
+    if (selectedModule === "chatbot") {
       payload.system_instruction = "You are a helpful AI assistant.";
       payload.user_message = userMsg;
     } else if (selectedModule === "programming") {
@@ -58,7 +55,8 @@ export default function SanchiUltimateDashboard() {
       payload.language = "python";
     } else if (selectedModule === "decision-maker") {
       payload.scenario = userMsg;
-      payload.options = ["Option A", "Option B"];
+      // Dyanmic options extracted via split logic if user inputs comma, else sets default array
+      payload.options = userMsg.includes(",") ? userMsg.split(",") : ["Yes", "No"];
     } else if (selectedModule === "translate") {
       payload.text = userMsg;
       payload.target_language = "English";
@@ -66,7 +64,6 @@ export default function SanchiUltimateDashboard() {
       payload.user_watch_history = ["Cinematic Editing", "Coding"];
       payload.current_search = userMsg;
     } else {
-      // For research, robotics, education, spam-filter, voice-assistant
       payload.query = userMsg;
     }
 
@@ -79,15 +76,11 @@ export default function SanchiUltimateDashboard() {
       
       const data = await res.json();
       
-      // Extracting the text response based on API response key structure
       let aiReply = data.reply || data.result || data.explanation || data.code || data.analysis || data.translated_text || data.assistant_speech_reply || JSON.stringify(data);
       
-      // Clean up stringified JSON if needed
       if (typeof aiReply === "object") aiReply = JSON.stringify(aiReply);
 
       setChatHistory((prev) => [...prev, { sender: "ai", text: aiReply }]);
-      
-      // AI Se Bolne Ke Liye Request Trigger
       speakText(aiReply);
 
     } catch (error) {
@@ -100,7 +93,7 @@ export default function SanchiUltimateDashboard() {
   return (
     <div className={`min-h-screen flex flex-col font-sans transition-all duration-300 ${appMode === "owner" ? "bg-slate-950 text-slate-100" : "bg-neutral-950 text-neutral-100"}`}>
       
-      {/* TOP HEADER PLATFORM CONSOLE */}
+      {/* HEADER PLATFORM */}
       <header className="border-b border-slate-800 p-4 flex justify-between items-center bg-slate-900/50 backdrop-blur-md sticky top-0 z-50">
         <div>
           <h1 className="text-xl font-black tracking-widest text-cyan-400">
@@ -109,7 +102,6 @@ export default function SanchiUltimateDashboard() {
           <p className="text-xs text-slate-400 font-mono">Viraaj Tech Core Systems Inc.</p>
         </div>
 
-        {/* Toggle View Switcher */}
         <button
           onClick={() => {
             setAppMode(appMode === "owner" ? "client" : "owner");
@@ -121,10 +113,10 @@ export default function SanchiUltimateDashboard() {
         </button>
       </header>
 
-      {/* CORE WORKSPACE CONNECTOR */}
+      {/* CORE WORKSPACE */}
       <div className="flex-1 max-w-4xl w-full mx-auto p-4 flex flex-col min-h-[calc(100vh-73px)]">
         
-        {/* MODULE PICKER SELECTOR CONTAINER */}
+        {/* MODULE SELECTOR */}
         <div className="mb-4 bg-slate-900/80 border border-slate-800 p-4 rounded-xl flex flex-col sm:flex-row gap-3 items-center justify-between">
           <label className="text-sm font-bold text-slate-300 font-mono">Select Target Engine Route:</label>
           <select
@@ -135,20 +127,21 @@ export default function SanchiUltimateDashboard() {
             }}
             className="bg-slate-950 border border-slate-700 text-cyan-400 text-sm rounded-lg p-2.5 focus:ring-cyan-500 focus:border-cyan-500 font-medium"
           >
-            <option value="chatbot/custom">💬 Custom Chatbot Builder</option>
+            <option value="chatbot">💬 Custom Chatbot Builder</option>
             <option value="programming">💻 Programming Buddy Architect</option>
             <option value="research">🔬 Scientific Research Analyzer</option>
             <option value="education">🎓 AI Education Coach</option>
             <option value="decision-maker">⚖️ Risk & Decision Analyzer</option>
             <option value="robotics">🤖 Robotics Simulator Logic</option>
             <option value="translate">🌐 Context Slang Translator</option>
-            <option value="spam-filter">🛡️ Content Spam & Sentiment</option>
+            <option value="spam-filer">🛡️ Content Spam & Sentiment</option>
             <option value="youtube-recommender">🎥 YouTube Algo Matrix</option>
             <option value="voice-assistant">🎙️ Voice Intent Extractor</option>
+            <option value="ai-brain">🧠 SANCHI Core Intelligence</option>
           </select>
         </div>
 
-        {/* CHAT MAIN VIEW LOG */}
+        {/* CHAT LOG VIEW */}
         <div className="flex-1 bg-slate-900/40 border border-slate-800/80 rounded-2xl p-4 overflow-y-auto mb-4 min-h-[350px] max-h-[500px] flex flex-col gap-4 shadow-inner">
           {chatHistory.length === 0 && (
             <div className="text-center my-auto space-y-2">
@@ -181,7 +174,7 @@ export default function SanchiUltimateDashboard() {
           )}
         </div>
 
-        {/* INPUT TRANSMISSION CONSOLE */}
+        {/* CONSOLE INPUT */}
         <form onSubmit={handleSendMessage} className="flex gap-2 bg-slate-900 p-2 rounded-xl border border-slate-800 shadow-xl">
           <input
             type="text"
@@ -200,7 +193,6 @@ export default function SanchiUltimateDashboard() {
           </button>
         </form>
 
-        {/* Voice control stop indicator panel */}
         {isSpeaking && (
           <div className="mt-2 text-center">
             <button 
@@ -216,5 +208,4 @@ export default function SanchiUltimateDashboard() {
       </div>
     </div>
   );
-        }
-        
+}
