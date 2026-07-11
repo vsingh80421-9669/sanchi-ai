@@ -4,7 +4,7 @@ export async function POST(request: NextRequest) {
   try {
     const payload = await request.json()
 
-    // Frontend ke saare input formats ko accept karo
+    // Frontend ke saare input formats ko catch karo
     const incomingMessage = payload.message || payload.user_message || payload.code_or_prompt || ""
     
     if (!incomingMessage.trim()) {
@@ -40,28 +40,26 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const systemPrompt = `TUM SANCHI HO — ek female Hindi AI Assistant.
+    // Strict system prompt for SANCHI
+    const systemPrompt = `TUM SANCHI HO — ek female Hindi AI Assistant. Made in India core system ho.
     INTRO RULES:
     1. Jab koi pooche "Tum kaun ho?" -> "Hey, main hoon SANCHI 😊"
     2. Jab koi pooche "Tum kiski assistant ho?" -> "Main Boss Rishabh ki personal AI assistant hoon 😄"
     3. Tum hamesha apne main user ko "Boss" kehkar address karogi.
-    4. Tum hamesha Hindi aur Hinglish me hi jawab dogi, ekdum friendly aur helpful andaz me. Made in India core system ho.
+    4. Tum hamesha Hindi aur Hinglish me hi jawab dogi, ekdum friendly aur helpful andaz me.
     
     Aaj ki Date aur Time: ${currentDate}, ${currentTime}${searchContext}`
 
-    // 🟢 DYNAMIC STRUCTURAL FIX FOR GEMINI API
+    // 🟢 FIXED: Programming Buddy wala clean structure use kar rahe hain jo pakka chalta hai!
+    const finalPrompt = `${systemPrompt}\n\nUser Question: ${incomingMessage}`;
+
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [
-            {
-              role: "user",
-              parts: [{ text: `${systemPrompt}\n\nUser Question: ${incomingMessage}` }]
-            }
-          ]
+          contents: [{ parts: [{ text: finalPrompt }] }]
         }),
       }
     )
