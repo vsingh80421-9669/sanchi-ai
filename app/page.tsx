@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Mic, MicOff, Volume2, VolumeX, Send, RefreshCw } from "lucide-react";
+import { Mic, MicOff, Volume2, VolumeX, Send } from "lucide-react";
 
 export default function SanchiUltimateDashboard() {
   const [appMode, setAppMode] = useState<"owner" | "client">("owner");
@@ -12,21 +12,20 @@ export default function SanchiUltimateDashboard() {
   
   // Voice Controls State
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
-  const [isMuted, setIsMuted] = useState<boolean>(false); // Speaker State
-  const [isListening, setIsListening] = useState<boolean>(false); // Mic State
+  const [isMuted, setIsMuted] = useState<boolean>(false); 
+  const [isListening, setIsListening] = useState<boolean>(false); 
 
   const recognitionRef = useRef<any>(null);
   const currentAiName = appMode === "owner" ? "Sanchi AI" : "Zephyr AI";
 
-  // 🔊 1. Speaker Logic (Text to Speech)
+  // 🔊 Speaker Logic (Text to Speech)
   const speakText = (text: string) => {
-    if (isMuted) return; // Agar mute hai toh mat bolo
+    if (isMuted) return; 
     if (typeof window !== "undefined" && window.speechSynthesis) {
       window.speechSynthesis.cancel(); 
       const utterance = new SpeechSynthesisUtterance(text);
       
       const voices = window.speechSynthesis.getVoices();
-      // Google Hindi or Indian English voice selection
       const indianVoice = voices.find(v => v.lang.includes("IN") || v.lang.includes("hi"));
       if (indianVoice) utterance.voice = indianVoice;
       
@@ -36,14 +35,14 @@ export default function SanchiUltimateDashboard() {
     }
   };
 
-  // 🎙️ 2. Mic Logic (Speech to Text)
+  // 🎙️ Mic Logic (Speech to Text)
   useEffect(() => {
     if (typeof window !== "undefined") {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (SpeechRecognition) {
         const rec = new SpeechRecognition();
         rec.continuous = false;
-        rec.lang = "hi-IN"; // Set to Hindi / Hinglish listening
+        rec.lang = "hi-IN"; 
         rec.interimResults = false;
 
         rec.onstart = () => setIsListening(true);
@@ -70,18 +69,18 @@ export default function SanchiUltimateDashboard() {
       recognitionRef.current.stop();
     } else {
       if (typeof window !== "undefined" && window.speechSynthesis) {
-        window.speechSynthesis.cancel(); // Bolna band karo jab mic chalu ho
+        window.speechSynthesis.cancel(); 
       }
       recognitionRef.current.start();
     }
   };
 
-  // Main API Call handler (Universal Payload Sync)
-  const handleSendMessage = async (e?: React.FormEvent, directMsg?: string) => {
+  // Main API Call handler
+  const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    const msgToSend = directMsg || inputMessage;
-    if (!msgToSend.trim()) return;
+    if (!inputMessage.trim()) return;
 
+    const msgToSend = inputMessage;
     setChatHistory((prev) => [...prev, { sender: "user", text: msgToSend }]);
     setInputMessage("");
     setLoading(true);
@@ -90,20 +89,17 @@ export default function SanchiUltimateDashboard() {
       message: msgToSend,
       user_message: msgToSend,
       code_or_prompt: msgToSend,
+      module_context: selectedModule, // Context backend ko pass karne ke liye
       conversationHistory: chatHistory.map(h => ({
         role: h.sender === "user" ? "user" : "assistant",
         content: h.text
       }))
     };
 
-    if (selectedModule === "chatbot") {
-      payload.system_instruction = "Tum Sanchi ho. Hamesha Hindi ya Hinglish me baat karo. Boss ko 'Boss' bolna.";
-    } else if (selectedModule === "programming") {
-      payload.language = "python";
-    }
-
     try {
-      const targetRoute = selectedModule === "ai-brain" ? "chatbot" : selectedModule;
+      // 🟢 CRITICAL ROUTING FIX: Kuch bhi select ho, bypass to fully stable chatbot/programming endpoints!
+      const targetRoute = selectedModule === "programming" ? "programming" : "chatbot";
+      
       const res = await fetch(`/api/${targetRoute}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -111,12 +107,12 @@ export default function SanchiUltimateDashboard() {
       });
       
       const data = await res.json();
-      let aiReply = data.reply || data.response || data.result || data.code || data.error || "No response";
+      let aiReply = data.reply || data.response || data.code || data.error || "No response";
       
       if (typeof aiReply === "object") aiReply = JSON.stringify(aiReply);
 
       setChatHistory((prev) => [...prev, { sender: "ai", text: aiReply }]);
-      speakText(aiReply); // Sanchi bol kar sunayegi
+      speakText(aiReply); 
 
     } catch (error) {
       setChatHistory((prev) => [...prev, { sender: "ai", text: "System Error: Connection failed, Boss." }]);
@@ -127,7 +123,7 @@ export default function SanchiUltimateDashboard() {
 
   return (
     <div style={{
-      backgroundColor: "#000000", // STRICT JET BLACK BACKGROUND
+      backgroundColor: "#000000", 
       color: "#f8fafc",
       minHeight: "100vh",
       fontFamily: "monospace",
@@ -137,7 +133,7 @@ export default function SanchiUltimateDashboard() {
       gap: "14px"
     }}>
       
-      {/* 👑 HEADER SYSTEM */}
+      {/* HEADER SYSTEM */}
       <header style={{
         display: "flex",
         justifyContent: "space-between",
@@ -172,7 +168,7 @@ export default function SanchiUltimateDashboard() {
         </button>
       </header>
 
-      {/* ⚙️ CONTROLS BAR (SPEAKER & MIC CONTROL) */}
+      {/* CONTROLS BAR */}
       <div style={{
         backgroundColor: "#0b0f19",
         border: "1px solid #1e293b",
@@ -183,7 +179,6 @@ export default function SanchiUltimateDashboard() {
         alignItems: "center"
       }}>
         <div style={{ display: "flex", gap: "8px" }}>
-          {/* SPEAKER CONTROL */}
           <button
             onClick={() => {
               if (!isMuted && typeof window !== "undefined") window.speechSynthesis.cancel();
@@ -208,13 +203,12 @@ export default function SanchiUltimateDashboard() {
           </button>
         </div>
 
-        {/* CURRENT STATE */}
         <span style={{ fontSize: "11px", color: isListening ? "#f43f5e" : "#22d3ee" }}>
-          {isListening ? "🔴 LISTENING YOUR VOICE..." : "🟢 STANDBY MATRIX"}
+          {isListening ? "🔴 LISTENING..." : "🟢 STANDBY MATRIX"}
         </span>
       </div>
 
-      {/* 📡 ROUTE MANAGER */}
+      {/* ROUTE MANAGER */}
       <div style={{
         backgroundColor: "#0b0f19",
         border: "1px solid #1e293b",
@@ -254,7 +248,7 @@ export default function SanchiUltimateDashboard() {
         </select>
       </div>
 
-      {/* 💬 CENTRAL TERMINAL CHAT VIEW */}
+      {/* CENTRAL TERMINAL CHAT VIEW */}
       <div style={{
         flex: 1,
         backgroundColor: "#020617",
@@ -269,7 +263,7 @@ export default function SanchiUltimateDashboard() {
       }}>
         {chatHistory.length === 0 && (
           <div style={{ margin: "auto", textAlign: "center", color: "#475569" }}>
-            <div style={{ fontSize: "36px", animation: "pulse 2s infinite" }}>🌐</div>
+            <div style={{ fontSize: "36px" }}>🌐</div>
             <p style={{ fontSize: "12px", marginTop: "8px" }}>
               {appMode === "owner" 
                 ? "Stealth matrix active. Mic ya Type karke instruct karein, Vivek." 
@@ -311,10 +305,8 @@ export default function SanchiUltimateDashboard() {
         )}
       </div>
 
-      {/* 🚀 CONSOLE DISPATCH CONTROLS */}
-      <form onSubmit={(e) => handleSendMessage(e)} style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-        
-        {/* 🎙️ MASTER MIC CONTROL BUTTON */}
+      {/* CONSOLE DISPATCH CONTROLS */}
+      <form onSubmit={handleSendMessage} style={{ display: "flex", gap: "8px", alignItems: "center" }}>
         <button
           type="button"
           onClick={toggleMic}
@@ -368,7 +360,7 @@ export default function SanchiUltimateDashboard() {
         </button>
       </form>
 
-      {/* 🇮🇳 proud FOOTER */}
+      {/* FOOTER */}
       <footer style={{
         textAlign: "center",
         fontSize: "11px",
