@@ -4,7 +4,7 @@ export async function POST(request: NextRequest) {
   try {
     const payload = await request.json()
 
-    // Frontend ke saare input formats ko ek sath catch karo
+    // Frontend ke saare input formats ko accept karo
     const incomingMessage = payload.message || payload.user_message || payload.code_or_prompt || ""
     
     if (!incomingMessage.trim()) {
@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Gemini API key not configured in Vercel" }, { status: 500 })
     }
 
-    // Dynamic Search Detection Layer
+    // 📡 Search Layer
     const needsSearch = detectSearchIntent(incomingMessage)
     let searchContext = ""
     const currentDate = new Date().toLocaleDateString("hi-IN", {
@@ -49,24 +49,33 @@ export async function POST(request: NextRequest) {
     
     Aaj ki Date aur Time: ${currentDate}, ${currentTime}${searchContext}`
 
-    // HIT THE WORKING GEMINI API DIRECTLY
+    // 🟢 DYNAMIC STRUCTURAL FIX FOR GEMINI API
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: `${systemPrompt}\n\nUser Question: ${incomingMessage}` }] }]
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: `${systemPrompt}\n\nUser Question: ${incomingMessage}` }]
+            }
+          ]
         }),
       }
     )
 
-    if (!response.ok) throw new Error("Gemini Engine Request Failed")
+    if (!response.ok) {
+      const errLogs = await response.json().catch(() => ({}))
+      console.error("Gemini Failure Logs:", errLogs)
+      throw new Error("Gemini Engine Request Failed")
+    }
 
     const data = await response.json()
     const aiReply = data.candidates?.[0]?.content?.parts?.[0]?.text || "Mera server respond nahi kar pa raha hai, Boss."
 
-    // Universal keys return karo taaki frontend panel ka dropdown crash na ho
+    // Universal response mapping for frontend dropdown stability
     return NextResponse.json({ 
       reply: aiReply, 
       response: aiReply,
